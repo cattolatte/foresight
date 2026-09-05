@@ -1,0 +1,44 @@
+# Publish web/ to GitHub Pages.
+#
+# Manual trigger only. A Pages site is reachable by anyone who has the URL even
+# when the repository behind it is private, so publishing is a deliberate act
+# rather than something a push does on its own.
+#
+# What gets published is the static build: the interface plus the precomputed
+# analyses in web/data, produced by scripts/export_static.sh. No model weights,
+# no flow table and no capture data are uploaded -- web/data holds only the
+# derived risk curves and explanations the page draws.
+name: pages
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Check the static export is present
+        run: |
+          test -f web/data/manifest.json || {
+            echo "web/data/manifest.json missing -- run scripts/export_static.sh" >&2
+            exit 1
+          }
+      - uses: actions/configure-pages@v5
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: web
+      - id: deployment
+        uses: actions/deploy-pages@v4
