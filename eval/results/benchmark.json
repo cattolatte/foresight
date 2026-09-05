@@ -1,0 +1,137 @@
+{
+ "config": {
+  "window": "60s",
+  "stride": "15s",
+  "length": 12,
+  "horizon": 6,
+  "n_features": 33,
+  "columns": [
+   "FIN Flag Count",
+   "SYN Flag Count",
+   "RST Flag Count",
+   "PSH Flag Count",
+   "ACK Flag Count",
+   "URG Flag Count",
+   "Flow Duration",
+   "Flow IAT Mean",
+   "Flow IAT Std",
+   "Flow IAT Max",
+   "Flow IAT Min",
+   "Fwd IAT Mean",
+   "Bwd IAT Mean",
+   "Active Mean",
+   "Idle Mean",
+   "Total Fwd Packets",
+   "Total Backward Packets",
+   "Total Length of Fwd Packets",
+   "Total Length of Bwd Packets",
+   "Flow Bytes/s",
+   "Flow Packets/s",
+   "Down/Up Ratio",
+   "Average Packet Size",
+   "Packet Length Std",
+   "Packet Length Variance",
+   "Init_Win_bytes_forward",
+   "Init_Win_bytes_backward",
+   "flow_count",
+   "unique_dst_ports",
+   "unique_dst_ips",
+   "unique_src_ips",
+   "dst_port_entropy",
+   "fanout"
+  ],
+  "train_days": [
+   "2017-07-03",
+   "2017-07-04",
+   "2017-07-05"
+  ],
+  "test_days": [
+   "2017-07-06",
+   "2017-07-07"
+  ],
+  "selection": "validation split from training days, 20% chronological",
+  "rollout_steps": 4,
+  "rollout_weight": 0.5,
+  "best_val_auc": 0.8952994721945996
+ },
+ "results": {
+  "world model": {
+   "metrics": {
+    "f1": 0.5379794434695412,
+    "precision": 0.4264705882352941,
+    "recall": 0.7284453496266123,
+    "false_positive_rate": 0.3399293286219081,
+    "auc": 0.7610578157122673,
+    "threshold": 0.011629903689026838,
+    "tp": 1073,
+    "fp": 1443,
+    "fn": 400,
+    "tn": 2802
+   },
+   "lead_time": {
+    "episodes": 57,
+    "warned": 27,
+    "missed": 30,
+    "chance_warn_rate": 0.40237564418356175,
+    "median_lead_seconds": 150.0,
+    "mean_lead_seconds": 138.33333333333334,
+    "max_lead_seconds": 150.0,
+    "fpr_budget": 0.05,
+    "threshold": 0.6661869883537292,
+    "realised_fpr": 0.05017667844522968
+   }
+  },
+  "logistic regression (current window)": {
+   "metrics": {
+    "f1": 0.5538402896893463,
+    "precision": 0.38500264970853204,
+    "recall": 0.9864222674813307,
+    "false_positive_rate": 0.5467608951707892,
+    "auc": 0.7663248244610288,
+    "threshold": 0.055964059713710115,
+    "tp": 1453,
+    "fp": 2321,
+    "fn": 20,
+    "tn": 1924
+   },
+   "lead_time": {
+    "episodes": 57,
+    "warned": 25,
+    "missed": 32,
+    "chance_warn_rate": 0.40680739527309495,
+    "median_lead_seconds": 150.0,
+    "mean_lead_seconds": 129.0,
+    "max_lead_seconds": 150.0,
+    "fpr_budget": 0.05,
+    "threshold": 0.768761590526867,
+    "realised_fpr": 0.05088339222614841
+   }
+  },
+  "logistic regression (full history)": {
+   "metrics": {
+    "f1": 0.539903846153846,
+    "precision": 0.41793822106438405,
+    "recall": 0.7623896809232859,
+    "false_positive_rate": 0.3684334511189635,
+    "auc": 0.7207028435674093,
+    "threshold": 0.12910133763765874,
+    "tp": 1123,
+    "fp": 1564,
+    "fn": 350,
+    "tn": 2681
+   },
+   "lead_time": {
+    "episodes": 57,
+    "warned": 24,
+    "missed": 33,
+    "chance_warn_rate": 0.40237564418356175,
+    "median_lead_seconds": 150.0,
+    "mean_lead_seconds": 134.375,
+    "max_lead_seconds": 150.0,
+    "fpr_budget": 0.05,
+    "threshold": 0.7825978395737034,
+    "realised_fpr": 0.05017667844522968
+   }
+  }
+ }
+}
