@@ -1,0 +1,37 @@
+{
+  "Bot": {
+    "surprise": 0.21284271284271283,
+    "volume": 0.1259018759018759,
+    "windows": 2772
+  },
+  "DDoS": {
+    "surprise": 0.2441860465116279,
+    "volume": 0.23255813953488372,
+    "windows": 86
+  },
+  "Infiltration": {
+    "surprise": 0.2962962962962963,
+    "volume": 0.15432098765432098,
+    "windows": 162
+  },
+  "PortScan": {
+    "surprise": 0.16,
+    "volume": 0.208,
+    "windows": 125
+  },
+  "Web Attack \u2013 Brute Force": {
+    "surprise": 0.17032967032967034,
+    "volume": 0.24175824175824176,
+    "windows": 182
+  },
+  "Web Attack \u2013 Sql Injection": {
+    "surprise": 0.14285714285714285,
+    "volume": 0.21428571428571427,
+    "windows": 14
+  },
+  "Web Attack \u2013 XSS": {
+    "surprise": 0.2441860465116279,
+    "volume": 0.2441860465116279,
+    "windows": 86
+  }
+}

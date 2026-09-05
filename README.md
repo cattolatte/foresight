@@ -44,9 +44,9 @@ compromise happens has not solved this problem.
 |---|---|---|
 | Flow-level features (NetFlow/IPFIX) | done | 33 features, 60s windows at a 15s stride |
 | Packet-level features (PCAP-derived) | extracted, not used | TTL, TCP window, fragment flags, retransmissions — [left out for a measured reason](docs/RESULTS.md#packet-level-features-extracted-measured-and-left-out) |
-| World model learning `P(S_t+1 \| S_t)` | done | LSTM + attention dynamics, 0.790 AUC |
+| World model learning `P(S_t+1 \| S_t)` | done | LSTM + attention dynamics, 0.783 AUC |
 | K-step forward simulation | done | 6-step rollout, supervised on its own trajectory |
-| MITRE ATT&CK stage mapping | done | 0.493 over five stages, 0.200 chance |
+| MITRE ATT&CK stage mapping | done | 0.527 over five stages, 0.200 chance |
 | Explainability (attention / SHAP) | done | gradient×input + attention, per-stage weights |
 | Offline demo interface | done | CLI and a local web UI, no network calls |
 | Benchmark vs logistic regression baseline | done | beats both baselines on F1 and AUC |
@@ -66,9 +66,14 @@ negative results in [docs/RESULTS.md](docs/RESULTS.md).
 
 | model | F1 | precision | recall | FPR | AUC |
 |---|---|---|---|---|---|
-| **world model** | **0.556** | 0.386 | 0.990 | 0.546 | **0.790** |
-| logistic regression, current window | 0.554 | 0.385 | 0.986 | 0.547 | 0.766 |
-| logistic regression, full history | 0.540 | 0.418 | 0.762 | 0.368 | 0.721 |
+| **world model** | **0.557** | 0.387 | 0.992 | 0.545 | **0.783** |
+| logistic regression, current window | 0.553 | 0.384 | 0.984 | 0.548 | 0.761 |
+| logistic regression, full history | 0.540 | 0.412 | 0.784 | 0.388 | 0.716 |
+
+> **This table is not the headline.** A single feature — flow count — scores
+> 0.783 on the same task, and persistence with no features scores 0.873.
+> [docs/ANALYSIS.md](docs/ANALYSIS.md) works out what the benchmark was really
+> measuring and what replaces it.
 
 Beyond the statement, the learned dynamics are used to answer a question a
 classifier cannot: **what happens if a defender acts.** Editing the state and
@@ -84,8 +89,10 @@ Three things measured and reported as negative:
   scores 0.718. Held at constant coverage the gain vanishes.
 - **Host-graph features hurt.** Test AUC 0.761 without, 0.606 with; they let
   the model fit the topology of the days it trained on. Behind a flag, off.
-- **Lead time is at chance.** The warn rate at a 5% false-alarm budget is 42%
+- **Lead time is at chance.** The warn rate at a 5% false-alarm budget is 39%
   against a 40% floor from the lookback window alone.
+- **The benchmark itself is too easy.** Flow count alone matches the model;
+  persistence beats it. See [docs/ANALYSIS.md](docs/ANALYSIS.md).
 
 ## Running it
 
@@ -93,5 +100,8 @@ Three things measured and reported as negative:
 python -m uvicorn foresight.server:app --port 8090   # web interface
 python foresight/cli.py capture.parquet --top 8      # terminal
 python eval/benchmark.py                             # the table above
+python eval/shortcuts.py                             # what beats it without a model
+python eval/surprise.py                              # benign-trained, unsupervised
+python eval/perhost.py                               # host as the unit of modelling
 python -m pytest tests/                              # 12 tests
 ```

@@ -25,6 +25,7 @@ import time
 from pathlib import Path
 
 import numpy as np
+import pandas as pd
 import torch
 from torch.utils.data import DataLoader
 
@@ -70,6 +71,10 @@ def main() -> None:
                     help="add host-graph features; measured worse, see docs/RESULTS.md")
     ap.add_argument("--length", type=int, default=12)
     ap.add_argument("--horizon", type=int, default=6)
+    ap.add_argument("--gap", type=int, default=None,
+                    help="offset to the first forecast window; defaults to "
+                         "window/stride, the first window the history has not "
+                         "already observed")
     ap.add_argument("--epochs", type=int, default=60)
     ap.add_argument("--batch", type=int, default=64)
     ap.add_argument("--lr", type=float, default=1e-3)
@@ -102,9 +107,14 @@ def main() -> None:
         fitted.append(head); validation.append(tail)
 
     norm = Normaliser.fit(np.concatenate([w.states for w in fitted]))
-    train_set = SequenceSet(fitted, norm, a.length, a.horizon)
-    val_set = SequenceSet(validation, norm, a.length, a.horizon)
-    test_set = SequenceSet(test_windows, norm, a.length, a.horizon)
+    gap = a.gap if a.gap is not None else max(
+        1, int(pd.Timedelta(a.window) / pd.Timedelta(a.stride or a.window)))
+    print(f"forecast gap: {gap} windows "
+          f"({gap * pd.Timedelta(a.stride or a.window).total_seconds():.0f}s "
+          f"beyond the last observed traffic)")
+    train_set = SequenceSet(fitted, norm, a.length, a.horizon, gap)
+    val_set = SequenceSet(validation, norm, a.length, a.horizon, gap)
+    test_set = SequenceSet(test_windows, norm, a.length, a.horizon, gap)
     print(f"device {device} | train {len(train_set):,} test {len(test_set):,} "
           f"| features {train_set.history[0].shape[1]}")
     print(f"train days {TRAIN_DAYS}\ntest days  {TEST_DAYS} (unseen attack families)")
@@ -158,7 +168,7 @@ def main() -> None:
     torch.save(model.state_dict(), out / "model.pt")
     np.savez(out / "norm.npz", mean=norm.mean, std=norm.std)
     (out / "config.json").write_text(json.dumps(
-        {"window": a.window, "stride": a.stride, "graph": a.graph, "length": a.length, "horizon": a.horizon,
+        {"window": a.window, "stride": a.stride, "graph": a.graph, "length": a.length, "horizon": a.horizon, "gap": gap,
          "n_features": int(train_set.history[0].shape[1]),
          "columns": train_windows[0].columns,
          "train_days": TRAIN_DAYS, "test_days": TEST_DAYS,

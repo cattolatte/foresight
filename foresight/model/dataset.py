@@ -65,8 +65,8 @@ class SequenceSet(Dataset):
     """(history, next state, future risk) triples from one or more days."""
 
     def __init__(self, windows: list, norm: Normaliser, length: int = 12,
-                 horizon: int = 6):
-        self.length, self.horizon = length, horizon
+                 horizon: int = 6, gap: int = 4):
+        self.length, self.horizon, self.gap = length, horizon, gap
         self.history: list[np.ndarray] = []
         self.target: list[np.ndarray] = []
         # The true next `horizon` states, so forward simulation can be trained
@@ -83,14 +83,24 @@ class SequenceSet(Dataset):
             # A slice shorter than one history plus one horizon yields nothing;
             # skipping it is correct, but silently producing empty slices is
             # how an off-by-one turns into a crash three layers away.
-            if n < length + horizon + 1:
+            if n < length + gap + horizon + 1:
                 continue
-            for t in range(length, n - horizon):
+            for t in range(length, n - horizon - gap):
                 self.history.append(states[t - length:t])
                 self.target.append(states[t])
                 self.future.append(states[t:t + horizon])
-                # Strictly the future: windows t+1 .. t+horizon.
-                self.risk.append(float(labels[t + 1:t + 1 + horizon].max() > 0))
+                # Strictly the future, and strictly unobserved.
+                #
+                # Excluding the present window is not enough when windows
+                # overlap. A 60s window every 15s means window t+1 covers
+                # traffic from 45s before t, half of which the history already
+                # contains, and t+2 a quarter of it. Labelling from t+1 let an
+                # attack visible in the model's own input set the forecast
+                # label, so two of six horizon steps were detection wearing a
+                # forecast's name. The gap is window/stride, the first offset
+                # whose traffic the history has not seen.
+                self.risk.append(
+                    float(labels[t + gap:t + gap + horizon].max() > 0))
                 self.origin.append((day.day, t))
 
     def __len__(self) -> int:

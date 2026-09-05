@@ -55,7 +55,7 @@ def infer_stage(state: dict[str, float], stage_model=None
     every window on both test days got the same answer.
 
     The fitted classifier in `foresight.predict.stages` replaces it and is
-    scored in `eval/stages.py`: 0.493 accuracy over five stages against a 0.200
+    scored in `eval/stages.py`: 0.527 accuracy over five stages against a 0.200
     chance floor, measured on rolled-forward states because that is what this
     function is given, per-stage precision and recall reported there. It stays
     interpretable -- one weight per named feature per stage -- so the evidence
@@ -126,9 +126,9 @@ def predict(model, window: torch.Tensor, columns: list[str],
                      "on held-out data; treat it as a hint, not a finding")
     if stage_confidence < 0.5:
         notes.append(f"stage is a weak call ({stage_confidence:.2f} confidence); "
-                     "the classifier separates five predicted stages at 0.49 "
+                     "the classifier separates five predicted stages at 0.53 "
                      "accuracy against a 0.20 chance floor, and reconnaissance "
-                     "is its weakest class at 0.13 precision")
+                     "is its weakest class at 0.08 precision")
 
     return Prediction(infiltration_probability=peak, horizon_curve=curve,
                       stage=stage, stage_evidence=evidence, top_features=top,

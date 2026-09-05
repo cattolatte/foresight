@@ -111,13 +111,17 @@ def main() -> None:
 
     saved = np.load(ckpt / "norm.npz")
     norm = Normaliser(mean=saved["mean"], std=saved["std"])
-    train_set = SequenceSet(train_windows, norm, cfg["length"], cfg["horizon"])
-    test_set = SequenceSet(test_windows, norm, cfg["length"], cfg["horizon"])
+    gap = cfg.get("gap", 1)
+    train_set = SequenceSet(train_windows, norm, cfg["length"], cfg["horizon"], gap)
+    test_set = SequenceSet(test_windows, norm, cfg["length"], cfg["horizon"], gap)
 
     y_train = np.array(train_set.risk)
     y_test = np.array(test_set.risk)
+    stride_s = int((cfg.get("stride") or cfg["window"]).rstrip("s"))
     print(f"train {len(y_train):,}  test {len(y_test):,}  "
           f"(test days {TEST_DAYS}, attack families unseen in training)")
+    print(f"forecast gap {gap} windows: the label starts {gap * stride_s}s past "
+          f"the last observed traffic, base rate {y_test.mean():.3f}")
 
     # --- world model -------------------------------------------------------
     model = WorldModel(n_features=cfg["n_features"])

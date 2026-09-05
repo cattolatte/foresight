@@ -1,0 +1,8 @@
+{
+  "onset_auc": {
+    "surprise": 0.7139851549388376,
+    "naive": 0.5354914614945412,
+    "supervised": 0.7054985552883367
+  },
+  "onset_positives_train": 83
+}

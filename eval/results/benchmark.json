@@ -5,7 +5,8 @@
   "graph": false,
   "length": 12,
   "horizon": 6,
-  "n_features": 33,
+  "gap": 4,
+  "n_features": 35,
   "columns": [
    "FIN Flag Count",
    "SYN Flag Count",
@@ -34,6 +35,8 @@
    "Packet Length Variance",
    "Init_Win_bytes_forward",
    "Init_Win_bytes_backward",
+   "Init_Win_bytes_forward_absent",
+   "Init_Win_bytes_backward_absent",
    "flow_count",
    "unique_dst_ports",
    "unique_dst_ips",
@@ -53,85 +56,85 @@
   "selection": "validation split from training days, 20% chronological",
   "rollout_steps": 4,
   "rollout_weight": 0.5,
-  "best_val_auc": 0.9334267191922283
+  "best_val_auc": 0.9137161745432117
  },
  "results": {
   "world model": {
    "metrics": {
-    "f1": 0.555746140651801,
-    "precision": 0.3863275039745628,
-    "recall": 0.9898167006109979,
-    "false_positive_rate": 0.545583038869258,
-    "auc": 0.7902390656472972,
-    "threshold": 0.005349790584295988,
-    "tp": 1458,
-    "fp": 2316,
-    "fn": 15,
-    "tn": 1929
+    "f1": 0.5569765222370681,
+    "precision": 0.387208067940552,
+    "recall": 0.9918422841604351,
+    "false_positive_rate": 0.5447039396083982,
+    "auc": 0.7833825589934135,
+    "threshold": 0.004844350731000305,
+    "tp": 1459,
+    "fp": 2309,
+    "fn": 12,
+    "tn": 1930
    },
    "lead_time": {
     "episodes": 57,
-    "warned": 24,
-    "missed": 33,
-    "chance_warn_rate": 0.40237564418356175,
+    "warned": 22,
+    "missed": 35,
+    "chance_warn_rate": 0.4013373960054868,
     "median_lead_seconds": 150.0,
-    "mean_lead_seconds": 131.875,
+    "mean_lead_seconds": 132.95454545454547,
     "max_lead_seconds": 150.0,
     "fpr_budget": 0.05,
-    "threshold": 0.32936182618141174,
-    "realised_fpr": 0.05017667844522968
+    "threshold": 0.4574125111103058,
+    "realised_fpr": 0.05001179523472517
    }
   },
   "logistic regression (current window)": {
    "metrics": {
-    "f1": 0.5538402896893463,
-    "precision": 0.38500264970853204,
-    "recall": 0.9864222674813307,
-    "false_positive_rate": 0.5467608951707892,
-    "auc": 0.7663248244610288,
-    "threshold": 0.055964059713710115,
-    "tp": 1453,
-    "fp": 2321,
-    "fn": 20,
-    "tn": 1924
+    "f1": 0.5525663041404312,
+    "precision": 0.3840848806366048,
+    "recall": 0.9843643779741672,
+    "false_positive_rate": 0.5477707006369427,
+    "auc": 0.7608049882857523,
+    "threshold": 0.04112787192431037,
+    "tp": 1448,
+    "fp": 2322,
+    "fn": 23,
+    "tn": 1917
    },
    "lead_time": {
     "episodes": 57,
     "warned": 25,
     "missed": 32,
-    "chance_warn_rate": 0.40680739527309495,
+    "chance_warn_rate": 0.40282235768162944,
     "median_lead_seconds": 150.0,
-    "mean_lead_seconds": 129.0,
+    "mean_lead_seconds": 130.8,
     "max_lead_seconds": 150.0,
     "fpr_budget": 0.05,
-    "threshold": 0.768761590526867,
-    "realised_fpr": 0.05088339222614841
+    "threshold": 0.7844968722136896,
+    "realised_fpr": 0.05024769992922859
    }
   },
   "logistic regression (full history)": {
    "metrics": {
-    "f1": 0.539903846153846,
-    "precision": 0.41793822106438405,
-    "recall": 0.7623896809232859,
-    "false_positive_rate": 0.3684334511189635,
-    "auc": 0.7207028435674093,
-    "threshold": 0.12910133763765874,
-    "tp": 1123,
-    "fp": 1564,
-    "fn": 350,
-    "tn": 2681
+    "f1": 0.5401733427032092,
+    "precision": 0.41208005718370266,
+    "recall": 0.7838205302515295,
+    "false_positive_rate": 0.3880632224581269,
+    "auc": 0.7161048173791358,
+    "threshold": 0.0969774419035772,
+    "tp": 1153,
+    "fp": 1645,
+    "fn": 318,
+    "tn": 2594
    },
    "lead_time": {
     "episodes": 57,
-    "warned": 24,
-    "missed": 33,
-    "chance_warn_rate": 0.40237564418356175,
+    "warned": 21,
+    "missed": 36,
+    "chance_warn_rate": 0.4013373960054868,
     "median_lead_seconds": 150.0,
-    "mean_lead_seconds": 134.375,
+    "mean_lead_seconds": 135.71428571428572,
     "max_lead_seconds": 150.0,
     "fpr_budget": 0.05,
-    "threshold": 0.7825978395737034,
-    "realised_fpr": 0.05017667844522968
+    "threshold": 0.7971393606573431,
+    "realised_fpr": 0.05001179523472517
    }
   }
  }

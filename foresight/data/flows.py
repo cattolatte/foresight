@@ -131,6 +131,27 @@ def build_windows(frame: pd.DataFrame, day: str, window: str = "60s",
     numeric = [c for c in FLAG_COLUMNS + TIMING_COLUMNS + VOLUME_COLUMNS
                if c in sub.columns]
     indexed = sub.set_index("ts")
+
+    # Init_Win_bytes_* use -1 as "not applicable", not as a value. It is set on
+    # every non-TCP flow and never on a TCP one, so a window mean silently
+    # blended "how much of this window was TCP" into "how large the TCP receive
+    # window was". Worse as a feature than as a bug: 44% of benign flows carry
+    # the sentinel against 0.0% of every attack family in this capture, because
+    # every attack here is TCP -- so the blended feature is partly a protocol
+    # detector that would go blind against a UDP-based attack.
+    #
+    # Split explicitly: the rate is a real property of the traffic and is kept
+    # as its own feature; the mean is taken over the flows where the field
+    # actually applies.
+    for column in ("Init_Win_bytes_forward", "Init_Win_bytes_backward"):
+        if column in indexed.columns:
+            missing = indexed[column] < 0
+            indexed = indexed.assign(**{
+                f"{column}_absent": missing.astype(float),
+                column: indexed[column].where(~missing)})
+            if f"{column}_absent" not in numeric:
+                numeric = numeric + [f"{column}_absent"]
+
     step = stride or window
     if stride is None:
         grouped = indexed.resample(window)

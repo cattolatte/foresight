@@ -1,0 +1,22 @@
+{
+  "persistence \u2014 last observed label, no features": {
+    "auc": 0.8734150804842349,
+    "f1": 0.8372439478584731
+  },
+  "always predict attack": {
+    "auc": 0.4541380265377546,
+    "f1": 0.40969224342013644
+  },
+  "one feature \u2014 fraction of flows that are TCP": {
+    "auc": 0.7422990588348874,
+    "f1": 0.5080153533529013
+  },
+  "one feature \u2014 fraction with the -1 window sentinel": {
+    "auc": 0.7011987197960603,
+    "f1": 0.4982086406743941
+  },
+  "one feature \u2014 flow count": {
+    "auc": 0.783262762387843,
+    "f1": 0.5401384970505257
+  }
+}

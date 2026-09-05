@@ -15,15 +15,22 @@ Test: 6–7 July (web attacks, infiltration, port scan, botnet, DDoS).
 
 | model | F1 | precision | recall | FPR | AUC |
 |---|---|---|---|---|---|
-| world model | **0.556** | 0.386 | 0.990 | 0.546 | **0.790** |
-| logistic regression, current window | 0.554 | 0.385 | 0.986 | 0.547 | 0.766 |
-| logistic regression, full history | 0.540 | 0.418 | 0.762 | 0.368 | 0.721 |
+| world model | **0.557** | 0.387 | 0.992 | 0.545 | **0.783** |
+| logistic regression, current window | 0.553 | 0.384 | 0.984 | 0.548 | 0.761 |
+| logistic regression, full history | 0.540 | 0.412 | 0.784 | 0.388 | 0.716 |
+
+**Read [ANALYSIS.md](ANALYSIS.md) before this table.** A single feature — flow
+count — scores 0.783 AUC on the same task, and a persistence baseline using the
+ground-truth label of the last observed window and no features at all scores
+0.873. This benchmark does not separate a world model from a threshold on
+traffic volume, and the numbers below are reported for completeness rather than
+as evidence.
 
 The world model leads on both headline measures, but the margin over the
-current-window baseline is 0.002 F1 and 0.024 AUC, which is thin. Read the
+current-window baseline is 0.004 F1 and 0.022 AUC, which is thin. Read the
 operating point before the ranking: at threshold 0.5 every model here recalls
 almost everything and is wrong about three times in five, against a test base
-rate of 0.256. AUC is the more meaningful comparison, and 0.790 against 0.766
+rate of 0.256. AUC is the more meaningful comparison, and 0.783 against 0.761
 is a real but modest gain for roughly three hundred thousand parameters over
 a linear model on the same features.
 
@@ -134,7 +141,7 @@ They are not in the model, for a measured reason. Coverage is not random with
 respect to attack family: 99.6% of PortScan flows have packet data against 0%
 of the web attacks. That is a property of which files the dataset publishes,
 not of the network. A logistic regression given **the coverage rate as its only
-feature** reaches test AUC 0.718 — against 0.790 for the full world model.
+feature** reaches test AUC 0.718 — against 0.783 for the full world model.
 
 So the apparent gain from packet features is checked against that:
 
@@ -173,7 +180,7 @@ number is the harder one.
 | split | accuracy | chance | what it measures |
 |---|---|---|---|
 | day split (train 3–5 July) | 0.073 | 0.200 | a structural limit, not the method |
-| interleaved blocks, gap enforced | **0.493** | 0.200 | the operating characteristic |
+| interleaved blocks, gap enforced | **0.527** | 0.200 | the operating characteristic |
 
 The day split is degenerate for this task: the training days contain only
 Initial Access and denial of service, so Reconnaissance, Lateral Movement and
@@ -187,13 +194,13 @@ and a four-window gap is discarded at every boundary because a 60s window every
 
 | stage | precision | recall | support |
 |---|---|---|---|
-| Reconnaissance | 0.132 | 0.321 | 28 |
-| Initial Access | 0.632 | 0.462 | 156 |
-| Lateral Movement | 0.292 | 0.636 | 22 |
-| Command & Control | 0.745 | 0.570 | 128 |
-| Impact (DoS) | 0.410 | 0.444 | 72 |
+| Reconnaissance | 0.075 | 0.179 | 28 |
+| Initial Access | 0.734 | 0.583 | 156 |
+| Lateral Movement | 0.483 | 0.636 | 22 |
+| Command & Control | 0.738 | 0.617 | 128 |
+| Impact (DoS) | 0.316 | 0.347 | 72 |
 
-Reconnaissance is the weak class: 0.132 precision means most windows called
+Reconnaissance is the weak class: 0.075 precision means most windows called
 reconnaissance are not, which is worth knowing before trusting that label.
 Command & Control and Initial Access are the two that carry their weight.
 
