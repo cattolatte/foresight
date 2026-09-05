@@ -13,6 +13,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import pickle
 from pathlib import Path
 
 import numpy as np
@@ -76,6 +77,11 @@ def main() -> None:
     model = WorldModel(n_features=cfg["n_features"])
     model.load_state_dict(torch.load(ckpt / "model.pt", map_location="cpu"))
     model.eval()
+    stages_path = ckpt / "stages.pkl"
+    if not stages_path.exists():
+        raise SystemExit(f"stage classifier missing; run `python eval/stages.py` "
+                         f"to fit and write {stages_path}")
+    stage_model = pickle.loads(stages_path.read_bytes())
 
     frame = load_capture(Path(a.capture))
     day = a.day or frame["day"].iloc[0]
@@ -96,7 +102,7 @@ def main() -> None:
             scored.append((t, risk))
 
     curve = [r for _, r in scored]
-    print(f"\n  infiltration probability over the capture")
+    print("\n  infiltration probability over the capture")
     # Compress to a readable width; a thousand glyphs is not a chart.
     step = max(1, len(curve) // 110)
     print(f"  {sparkline([max(curve[i:i+step]) for i in range(0, len(curve), step)])}")
@@ -104,10 +110,10 @@ def main() -> None:
           f"windows above {a.threshold:.2f}: {sum(r >= a.threshold for r in curve)}")
 
     ranked = sorted(scored, key=lambda kv: -kv[1])[:a.top]
-    print(f"\n  highest-risk windows")
+    print("\n  highest-risk windows")
     for t, risk in sorted(ranked):
         history = torch.from_numpy(states[t - length:t]).unsqueeze(0)
-        result = predict(model, history, windows.columns,
+        result = predict(model, history, windows.columns, stage_model=stage_model,
                          steps=cfg["horizon"], threshold=a.threshold, norm=norm)
         when = windows.times.iloc[t]
         truth = windows.families[t]
@@ -120,9 +126,9 @@ def main() -> None:
         if truth != "BENIGN":
             print(f"     ground truth in this window: {truth}")
 
-    print(f"\n  Explanations are gradient-times-input attributions over the "
-          f"observed\n  history plus attention weights; no cloud services are "
-          f"contacted.\n")
+    print("\n  Explanations are gradient-times-input attributions over the "
+          "observed\n  history plus attention weights; no cloud services are "
+          "contacted.\n")
 
 
 if __name__ == "__main__":

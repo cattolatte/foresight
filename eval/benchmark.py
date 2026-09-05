@@ -106,8 +106,8 @@ def main() -> None:
     ckpt = Path(a.checkpoint)
     cfg = json.loads((ckpt / "config.json").read_text())
     frame = load_flows()
-    train_windows = [build_windows(frame, d, cfg["window"], cfg.get("stride")) for d in TRAIN_DAYS]
-    test_windows = [build_windows(frame, d, cfg["window"], cfg.get("stride")) for d in TEST_DAYS]
+    train_windows = [build_windows(frame, d, cfg["window"], cfg.get("stride"), cfg.get("graph", False)) for d in TRAIN_DAYS]
+    test_windows = [build_windows(frame, d, cfg["window"], cfg.get("stride"), cfg.get("graph", False)) for d in TEST_DAYS]
 
     saved = np.load(ckpt / "norm.npz")
     norm = Normaliser(mean=saved["mean"], std=saved["std"])

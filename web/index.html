@@ -1,0 +1,218 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Foresight</title>
+<style>
+:root{
+  --bg:#0b0e13; --panel:#141922; --panel2:#1b2230; --line:#252d3a;
+  --ink:#e8eef5; --muted:#8493a5; --accent:#4c9aff; --warn:#e3b341;
+  --bad:#f2545b; --good:#3fb950;
+  --mono:ui-monospace,SFMono-Regular,Menlo,monospace;
+}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);
+  font:15px/1.55 -apple-system,BlinkMacSystemFont,"Segoe UI",Inter,sans-serif}
+header{padding:18px 26px;border-bottom:1px solid var(--line);
+  display:flex;align-items:baseline;gap:14px;flex-wrap:wrap}
+h1{margin:0;font-size:19px;letter-spacing:-.2px}
+.tag{font:11px var(--mono);color:var(--muted);border:1px solid var(--line);
+  padding:2px 8px;border-radius:99px}
+main{max-width:1240px;margin:0 auto;padding:24px}
+.card{background:var(--panel);border:1px solid var(--line);border-radius:11px;
+  padding:18px;margin-bottom:18px}
+.card h2{margin:0 0 14px;font-size:11px;text-transform:uppercase;
+  letter-spacing:.1em;color:var(--muted);font-weight:600}
+#drop{border:1.5px dashed var(--line);border-radius:9px;padding:30px;
+  text-align:center;color:var(--muted);cursor:pointer;transition:.15s}
+#drop:hover,#drop.over{border-color:var(--accent);color:var(--ink);background:var(--panel2)}
+.row{display:flex;gap:10px;align-items:center;margin-top:14px;flex-wrap:wrap}
+button{background:var(--accent);color:#04121f;border:0;padding:10px 20px;
+  border-radius:8px;cursor:pointer;font-weight:600}
+button:disabled{opacity:.5;cursor:default}
+.grid{display:grid;grid-template-columns:minmax(0,1fr) 380px;gap:18px}
+@media(max-width:980px){.grid{grid-template-columns:1fr}}
+canvas{width:100%;height:190px;display:block}
+.legend{display:flex;gap:16px;font-size:12px;color:var(--muted);margin-top:8px;flex-wrap:wrap}
+.dot{display:inline-block;width:9px;height:9px;border-radius:2px;margin-right:5px}
+table{width:100%;border-collapse:collapse;font:12px var(--mono)}
+td,th{text-align:left;padding:6px 6px;border-bottom:1px solid var(--line);vertical-align:top}
+th{color:var(--muted);font-weight:500}
+.bar{height:6px;background:var(--panel2);border-radius:99px;overflow:hidden;min-width:60px}
+.bar i{display:block;height:100%;background:var(--accent)}
+.stage{font-size:20px;font-weight:600;margin:2px 0 6px}
+.muted{color:var(--muted)}
+.small{font-size:12px}
+.err{color:var(--bad)}
+.spin{display:inline-block;width:13px;height:13px;border:2px solid var(--line);
+  border-top-color:var(--accent);border-radius:50%;animation:s .7s linear infinite;
+  vertical-align:-2px;margin-right:7px}
+@keyframes s{to{transform:rotate(360deg)}}
+.pill{font:10px var(--mono);padding:2px 7px;border-radius:99px;
+  background:rgba(76,154,255,.15);color:var(--accent)}
+.pill.warn{background:rgba(227,179,65,.15);color:var(--warn)}
+.pill.good{background:rgba(63,185,80,.15);color:var(--good)}
+</style>
+</head>
+<body>
+<header>
+  <h1>Foresight</h1>
+  <span class="tag">world model · P(S<sub>t+1</sub> | S<sub>t</sub>)</span>
+  <span class="tag" id="health">loading…</span>
+  <span class="tag pill good">fully offline</span>
+</header>
+
+<main>
+  <div class="card">
+    <h2>Traffic capture</h2>
+    <div id="drop">
+      Drop a flow CSV or parquet, or click to choose<br>
+      <span class="small">needs a Timestamp column · nothing leaves this machine</span>
+    </div>
+    <input type="file" id="file" accept=".csv,.parquet,.pq,.gz" hidden>
+    <div class="row">
+      <span id="chosen" class="muted small">no file selected</span>
+      <button id="go" disabled>Analyse</button>
+    </div>
+  </div>
+
+  <div id="out" style="display:none">
+    <div class="grid">
+      <div>
+        <div class="card">
+          <h2>Infiltration probability over the capture</h2>
+          <canvas id="chart"></canvas>
+          <div class="legend">
+            <span><i class="dot" style="background:var(--accent)"></i>forecast risk</span>
+            <span><i class="dot" style="background:var(--bad)"></i>ground-truth attack windows</span>
+            <span id="summary" class="muted"></span>
+          </div>
+        </div>
+
+        <div class="card">
+          <h2>Highest-risk window</h2>
+          <div class="muted small" id="peakTime"></div>
+          <div class="stage" id="peakStage"></div>
+          <div class="small" id="peakEvidence" style="color:var(--muted)"></div>
+          <div style="margin-top:14px">
+            <div class="muted small">forecast over the horizon</div>
+            <canvas id="horizon" style="height:90px"></canvas>
+          </div>
+        </div>
+      </div>
+
+      <aside>
+        <div class="card">
+          <h2>Why — driving features</h2>
+          <table id="feat"></table>
+          <div class="muted small" style="margin-top:10px">
+            Gradient × input over the observed history. Positive pushes risk up.
+          </div>
+        </div>
+
+        <div class="card">
+          <h2>If the defender acts</h2>
+          <div class="muted small" style="margin-bottom:10px">
+            Counterfactual rollouts — beyond the problem statement, and only
+            possible because the model predicts states rather than labels.
+          </div>
+          <table id="actions"></table>
+        </div>
+      </aside>
+    </div>
+  </div>
+  <div id="error" class="card err" style="display:none"></div>
+</main>
+
+<script>
+const $ = s => document.querySelector(s);
+let file = null;
+
+fetch('/api/health').then(r=>r.json()).then(h=>{
+  $('#health').textContent =
+    `${h.features} features · ${h.window} window / ${h.stride||h.window} stride · ${h.horizon}-step horizon`;
+}).catch(()=>$('#health').textContent='backend offline');
+
+const drop = $('#drop');
+drop.onclick = () => $('#file').click();
+drop.ondragover = e => { e.preventDefault(); drop.classList.add('over'); };
+drop.ondragleave = () => drop.classList.remove('over');
+drop.ondrop = e => { e.preventDefault(); drop.classList.remove('over'); pick(e.dataTransfer.files[0]); };
+$('#file').onchange = e => pick(e.target.files[0]);
+function pick(f){ if(!f) return; file=f; $('#chosen').textContent=f.name; $('#go').disabled=false; }
+
+$('#go').onclick = async () => {
+  const btn=$('#go'); btn.disabled=true; btn.innerHTML='<span class="spin"></span>analysing…';
+  $('#error').style.display='none';
+  const fd=new FormData(); fd.append('capture', file);
+  try{
+    const r = await fetch('/api/analyse', {method:'POST', body:fd});
+    const j = await r.json();
+    if(!r.ok) throw new Error(j.detail||'analysis failed');
+    render(j);
+  }catch(e){
+    $('#error').style.display='block'; $('#error').textContent=e.message;
+  }finally{ btn.disabled=false; btn.textContent='Analyse'; }
+};
+
+function line(canvas, values, truth, colour){
+  const dpr=window.devicePixelRatio||1, w=canvas.clientWidth, h=canvas.clientHeight;
+  canvas.width=w*dpr; canvas.height=h*dpr;
+  const c=canvas.getContext('2d'); c.scale(dpr,dpr); c.clearRect(0,0,w,h);
+  const pad=6, span=Math.max(values.length-1,1);
+  if(truth){
+    c.fillStyle='rgba(242,84,91,.22)';
+    truth.forEach((t,i)=>{ if(t) c.fillRect(pad+(w-2*pad)*i/span, 0, Math.max((w-2*pad)/span,1.5), h); });
+  }
+  c.strokeStyle='rgba(255,255,255,.07)';
+  [0,.5,1].forEach(f=>{ c.beginPath(); c.moveTo(pad,h-pad-(h-2*pad)*f); c.lineTo(w-pad,h-pad-(h-2*pad)*f); c.stroke(); });
+  c.beginPath(); c.strokeStyle=colour; c.lineWidth=1.6;
+  values.forEach((v,i)=>{
+    const x=pad+(w-2*pad)*i/span, y=h-pad-(h-2*pad)*Math.max(0,Math.min(1,v));
+    i?c.lineTo(x,y):c.moveTo(x,y);
+  });
+  c.stroke();
+}
+
+function render(j){
+  $('#out').style.display='block';
+  line($('#chart'), j.risk, j.ground_truth, '#4c9aff');
+  const above=j.risk.filter(v=>v>=0.5).length;
+  $('#summary').textContent =
+    `${j.windows} windows · peak ${Math.max(...j.risk).toFixed(2)} · ${above} above 0.50 · ${j.day}`;
+
+  const p=j.peak;
+  $('#peakTime').textContent = `${p.time}   risk ${p.risk.toFixed(2)}`;
+  $('#peakStage').textContent = p.stage;
+  $('#peakEvidence').textContent = p.evidence + (p.notes.length? '  ·  '+p.notes.join('; '):'');
+  line($('#horizon'), p.forecast, null, '#e3b341');
+
+  $('#feat').innerHTML = '<tr><th>feature</th><th>contribution</th></tr>' +
+    p.features.map(f=>{
+      const mag=Math.min(Math.abs(f.value)/2,1)*100;
+      const col=f.value>=0?'var(--bad)':'var(--good)';
+      return `<tr><td>${f.name}</td><td><div class="bar"><i style="width:${mag}%;background:${col}"></i></div>
+              <span class="muted">${f.value>=0?'+':''}${f.value.toFixed(2)}</span></td></tr>`;
+    }).join('');
+
+  $('#actions').innerHTML = '<tr><th>action</th><th>risk at horizon</th><th>contains in</th></tr>' +
+    j.interventions.map(a=>{
+      // Risk at the end of the simulated horizon, not the peak across it: the
+      // early steps still carry observed attack traffic in the history buffer,
+      // so every action necessarily leaves the peak untouched.
+      const before=a.without[a.without.length-1], after=a.with[a.with.length-1];
+      const cls = a.confidence.startsWith('high')?'good':a.confidence.startsWith('moderate')?'':'warn';
+      const hold = a.contains_in==null
+        ? '<span class="muted">not within horizon</span>'
+        : `<strong>${a.contains_in.toFixed(0)}s</strong>`;
+      return `<tr><td>${a.description}<div class="muted small">
+        <span class="pill ${cls}">${a.confidence.split('—')[0].trim()}</span></div></td>
+        <td>${before.toFixed(2)} → <strong>${after.toFixed(2)}</strong>
+        <div class="muted small">${a.reduction>=0?'−':'+'}${Math.abs(a.reduction).toFixed(2)}</div></td>
+        <td>${hold}</td></tr>`;
+    }).join('');
+}
+</script>
+</body>
+</html>

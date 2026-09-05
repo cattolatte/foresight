@@ -30,10 +30,6 @@ import numpy as np
 import torch
 
 # The five phases the statement names.
-STAGES = ["Reconnaissance", "Initial Access", "Lateral Movement",
-          "Command & Control", "Exfiltration"]
-
-
 @dataclass
 class Prediction:
     infiltration_probability: float
@@ -46,45 +42,33 @@ class Prediction:
     notes: list[str] = field(default_factory=list)
 
 
-def _z(state: dict[str, float], name: str) -> float:
-    return float(state.get(name, 0.0))
-
-
-def infer_stage(state: dict[str, float]) -> tuple[str, str]:
+def infer_stage(state: dict[str, float], stage_model=None
+                ) -> tuple[str, str, float]:
     """Name the attack phase a predicted state most resembles, with its reason.
 
-    Ordered by specificity, not likelihood: a port sweep and a SYN flood both
-    raise flow counts, and only the port spread separates them. Each branch
-    returns the evidence that fired so the answer is auditable.
-    """
-    entropy = _z(state, "dst_port_entropy")
-    ports = _z(state, "unique_dst_ports")
-    fanout = _z(state, "fanout")
-    syn, ack = _z(state, "SYN Flag Count"), _z(state, "ACK Flag Count")
-    flows = _z(state, "flow_count")
-    fwd, bwd = _z(state, "Total Length of Fwd Packets"), _z(state, "Total Length of Bwd Packets")
-    idle = _z(state, "Idle Mean")
+    This was a rule cascade -- thresholds on port entropy, fan-out and SYN
+    counts, each branch returning the evidence that fired. Measured against the
+    data the thresholds were fiction: median benign `unique_dst_ports` is 19
+    against a branch that fired above 8, `fanout` never exceeds 0.41 in any
+    family against a branch needing 1.2, and `SYN Flag Count` peaks at 0.13
+    against a branch needing 0.6. Two outcomes were reachable out of five and
+    every window on both test days got the same answer.
 
-    if entropy > 1.5 and ports > 8 and fanout > 1.2:
-        return STAGES[0], (f"port spread across {ports:.0f} destinations "
-                           f"(entropy {entropy:.2f}) with fan-out {fanout:.1f} — "
-                           "a sweep, not a service")
-    if syn > 0.6 and ack < 0.4 and flows > 5:
-        return STAGES[0], (f"half-open connections: SYN {syn:.2f} against "
-                           f"ACK {ack:.2f} over {flows:.0f} flows")
-    if flows > 5 and ports <= 3 and entropy < 1.0:
-        return STAGES[1], (f"repeated attempts against {ports:.0f} service(s) — "
-                           "concentrated retry, characteristic of credential guessing")
-    if fanout > 2.0 and entropy < 1.5:
-        return STAGES[2], (f"one source reaching {fanout:.1f}x more hosts than "
-                           "it receives from, on few ports — east-west spread")
-    if idle > 0.5 and flows > 0 and abs(fwd - bwd) < max(fwd, bwd, 1.0) * 0.3:
-        return STAGES[3], (f"periodic low-volume exchange (idle {idle:.2f}) with "
-                           "balanced directions — beaconing")
-    if bwd > fwd * 2.0 and bwd > 0:
-        return STAGES[4], (f"outbound volume {bwd:.0f} against inbound {fwd:.0f} — "
-                           "asymmetric egress")
-    return STAGES[1], "elevated activity without a distinguishing signature"
+    The fitted classifier in `foresight.predict.stages` replaces it and is
+    scored in `eval/stages.py`: 0.493 accuracy over five stages against a 0.200
+    chance floor, measured on rolled-forward states because that is what this
+    function is given, per-stage precision and recall reported there. It stays
+    interpretable -- one weight per named feature per stage -- so the evidence
+    returned is still the features that carried the decision, but now they are
+    the features the fit actually used.
+    """
+    if stage_model is None:
+        raise ValueError(
+            "a fitted stage model is required; run eval/stages.py to produce "
+            "checkpoints/world/stages.pkl. The hand-written cascade it "
+            "replaced could only return two of five stages.")
+    vector = np.array([[state.get(c, 0.0) for c in stage_model.columns]])
+    return stage_model.predict(vector)
 
 
 def explain(model, window: torch.Tensor, columns: list[str],
@@ -107,7 +91,8 @@ def explain(model, window: torch.Tensor, columns: list[str],
 
 
 def predict(model, window: torch.Tensor, columns: list[str],
-            steps: int = 6, threshold: float = 0.5, norm=None) -> Prediction:
+            steps: int = 6, threshold: float = 0.5, norm=None,
+            stage_model=None) -> Prediction:
     """Roll the dynamics forward and report what the trajectory implies.
 
     `norm` is required for the stage rules to mean anything: they are written
@@ -126,7 +111,7 @@ def predict(model, window: torch.Tensor, columns: list[str],
     if norm is not None:
         raw = norm.invert(raw)
     predicted_state = dict(zip(columns, raw))
-    stage, evidence = infer_stage(predicted_state)
+    stage, evidence, stage_confidence = infer_stage(predicted_state, stage_model)
 
     top, attention = explain(model, window, columns)
     notes = []
@@ -135,6 +120,15 @@ def predict(model, window: torch.Tensor, columns: list[str],
                      "read from the end of the horizon and is indicative only")
     if peak < threshold:
         notes.append(f"peak risk {peak:.2f} below threshold {threshold:.2f}")
+    reliability = (stage_model.precision or {}).get(stage)
+    if reliability is not None and reliability < 0.5:
+        notes.append(f"stage \"{stage}\" is right {reliability:.0%} of the time "
+                     "on held-out data; treat it as a hint, not a finding")
+    if stage_confidence < 0.5:
+        notes.append(f"stage is a weak call ({stage_confidence:.2f} confidence); "
+                     "the classifier separates five predicted stages at 0.49 "
+                     "accuracy against a 0.20 chance floor, and reconnaissance "
+                     "is its weakest class at 0.13 precision")
 
     return Prediction(infiltration_probability=peak, horizon_curve=curve,
                       stage=stage, stage_evidence=evidence, top_features=top,

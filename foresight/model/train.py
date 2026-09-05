@@ -66,6 +66,8 @@ def main() -> None:
     ap = argparse.ArgumentParser()
     ap.add_argument("--window", default="60s")
     ap.add_argument("--stride", default="15s")
+    ap.add_argument("--graph", action="store_true",
+                    help="add host-graph features; measured worse, see docs/RESULTS.md")
     ap.add_argument("--length", type=int, default=12)
     ap.add_argument("--horizon", type=int, default=6)
     ap.add_argument("--epochs", type=int, default=60)
@@ -82,8 +84,8 @@ def main() -> None:
     device = ("cuda" if torch.cuda.is_available()
               else "mps" if torch.backends.mps.is_available() else "cpu")
     frame = load_flows()
-    train_windows = [build_windows(frame, d, a.window, a.stride) for d in TRAIN_DAYS]
-    test_windows = [build_windows(frame, d, a.window, a.stride) for d in TEST_DAYS]
+    train_windows = [build_windows(frame, d, a.window, a.stride, a.graph) for d in TRAIN_DAYS]
+    test_windows = [build_windows(frame, d, a.window, a.stride, a.graph) for d in TEST_DAYS]
 
     # Chronological validation split from the training days. Held out by time
     # rather than at random: adjacent windows are near-duplicates, and a random
@@ -156,7 +158,7 @@ def main() -> None:
     torch.save(model.state_dict(), out / "model.pt")
     np.savez(out / "norm.npz", mean=norm.mean, std=norm.std)
     (out / "config.json").write_text(json.dumps(
-        {"window": a.window, "stride": a.stride, "length": a.length, "horizon": a.horizon,
+        {"window": a.window, "stride": a.stride, "graph": a.graph, "length": a.length, "horizon": a.horizon,
          "n_features": int(train_set.history[0].shape[1]),
          "columns": train_windows[0].columns,
          "train_days": TRAIN_DAYS, "test_days": TEST_DAYS,

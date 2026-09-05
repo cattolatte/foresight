@@ -2,6 +2,7 @@
  "config": {
   "window": "60s",
   "stride": "15s",
+  "graph": false,
   "length": 12,
   "horizon": 6,
   "n_features": 33,
@@ -52,32 +53,32 @@
   "selection": "validation split from training days, 20% chronological",
   "rollout_steps": 4,
   "rollout_weight": 0.5,
-  "best_val_auc": 0.8952994721945996
+  "best_val_auc": 0.9334267191922283
  },
  "results": {
   "world model": {
    "metrics": {
-    "f1": 0.5379794434695412,
-    "precision": 0.4264705882352941,
-    "recall": 0.7284453496266123,
-    "false_positive_rate": 0.3399293286219081,
-    "auc": 0.7610578157122673,
-    "threshold": 0.011629903689026838,
-    "tp": 1073,
-    "fp": 1443,
-    "fn": 400,
-    "tn": 2802
+    "f1": 0.555746140651801,
+    "precision": 0.3863275039745628,
+    "recall": 0.9898167006109979,
+    "false_positive_rate": 0.545583038869258,
+    "auc": 0.7902390656472972,
+    "threshold": 0.005349790584295988,
+    "tp": 1458,
+    "fp": 2316,
+    "fn": 15,
+    "tn": 1929
    },
    "lead_time": {
     "episodes": 57,
-    "warned": 27,
-    "missed": 30,
+    "warned": 24,
+    "missed": 33,
     "chance_warn_rate": 0.40237564418356175,
     "median_lead_seconds": 150.0,
-    "mean_lead_seconds": 138.33333333333334,
+    "mean_lead_seconds": 131.875,
     "max_lead_seconds": 150.0,
     "fpr_budget": 0.05,
-    "threshold": 0.6661869883537292,
+    "threshold": 0.32936182618141174,
     "realised_fpr": 0.05017667844522968
    }
   },

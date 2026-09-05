@@ -15,9 +15,17 @@ Test: 6–7 July (web attacks, infiltration, port scan, botnet, DDoS).
 
 | model | F1 | precision | recall | FPR | AUC |
 |---|---|---|---|---|---|
-| world model | 0.538 | 0.426 | 0.728 | **0.340** | 0.761 |
-| logistic regression, current window | **0.554** | 0.385 | 0.986 | 0.547 | **0.766** |
+| world model | **0.556** | 0.386 | 0.990 | 0.546 | **0.790** |
+| logistic regression, current window | 0.554 | 0.385 | 0.986 | 0.547 | 0.766 |
 | logistic regression, full history | 0.540 | 0.418 | 0.762 | 0.368 | 0.721 |
+
+The world model leads on both headline measures, but the margin over the
+current-window baseline is 0.002 F1 and 0.024 AUC, which is thin. Read the
+operating point before the ranking: at threshold 0.5 every model here recalls
+almost everything and is wrong about three times in five, against a test base
+rate of 0.256. AUC is the more meaningful comparison, and 0.790 against 0.766
+is a real but modest gain for roughly three hundred thousand parameters over
+a linear model on the same features.
 
 **The world model does not beat the baseline on F1 or AUC.** It is level with
 it, and the statement asks for a demonstrated improvement, so this is reported
@@ -103,3 +111,126 @@ it sees.
   central claim of the statement and the honest status is: not yet.
 - The infiltration class specifically has 36 flows in the entire corpus, which
   is too few to evaluate as its own family.
+
+## Packet-level features: extracted, measured, and left out
+
+The statement requires both feature levels and names the packet-level ones:
+TTL variance, TCP window size, fragment flags, payload distribution,
+retransmission counts. None survive into a flow record, so they had to come
+from the packet tables.
+
+Those tables are 272 GB across eighteen files. Downloading a prefix does not
+help — the files are ordered by capture time, so the first 7.7 GB covered only
+the benign Monday and every attack day sat past the end of it. Parquet is
+columnar, so the fix was to stop downloading files: ten of roughly two hundred
+and fifty columns carry everything named above, and a column chunk can be
+fetched on its own. **23 MB per file instead of 15 GB, 0.4 GB instead of 272.**
+
+The features decode correctly — TTL concentrates on the 64/128/255 OS defaults,
+TCP flag bytes take canonical values, the DF bit is set on 72% of packets.
+Coverage after extraction is 1,455,598 of 2,827,677 flows, 35–65% on every day.
+
+They are not in the model, for a measured reason. Coverage is not random with
+respect to attack family: 99.6% of PortScan flows have packet data against 0%
+of the web attacks. That is a property of which files the dataset publishes,
+not of the network. A logistic regression given **the coverage rate as its only
+feature** reaches test AUC 0.718 — against 0.790 for the full world model.
+
+So the apparent gain from packet features is checked against that:
+
+| evaluation | flow features | flow + packet | delta |
+|---|---|---|---|
+| all windows, packet features mean-imputed | 0.778 | 0.794 | +0.016 |
+| windows with coverage ≥ 0.3 | 0.638 | 0.643 | +0.005 |
+| windows with coverage ≥ 0.5 | 0.676 | 0.662 | −0.014 |
+
+Holding coverage roughly constant removes the gain and then reverses it. The
++0.016 is the release process, not the packets. The extractor ships and runs
+behind `build_windows(..., packets=...)`; the headline model does not use it.
+
+## MITRE stage mapping
+
+The first version was a rule cascade over port entropy, fan-out and SYN counts.
+Measured against the data its thresholds were fiction: median benign
+`unique_dst_ports` is 19 against a branch firing above 8, `fanout` never exceeds
+0.41 in any family against a branch needing 1.2, `SYN Flag Count` peaks at 0.13
+against a branch needing 0.6. Two of five stages were reachable, and every
+window on both test days got the same answer. It read well and measured nothing.
+
+It is now a multinomial logistic regression over the same named features — one
+weight per feature per stage, so the evidence shown is what carried the
+decision. Two evaluations, because they answer different questions:
+
+Both numbers below are computed on states the model *predicted*, not on
+observed windows. That distinction cost 23 points and was nearly missed: fitted
+on observed windows and applied to rolled-forward ones — which is what the
+interface actually shows a stage for — accuracy fell from 0.755 to 0.543 and
+every stage collapsed onto Command & Control, because the rollout regresses
+toward a mean the classifier read as that one class. Naming the stage of a
+future state is a harder task than labelling the current one, and the honest
+number is the harder one.
+
+| split | accuracy | chance | what it measures |
+|---|---|---|---|
+| day split (train 3–5 July) | 0.073 | 0.200 | a structural limit, not the method |
+| interleaved blocks, gap enforced | **0.493** | 0.200 | the operating characteristic |
+
+The day split is degenerate for this task: the training days contain only
+Initial Access and denial of service, so Reconnaissance, Lateral Movement and
+Command & Control exist *only* in the test set. A classifier cannot name a
+class it was never shown. Stage identification is not forecasting — it
+describes a state the model has already predicted — so it is fairly scored on a
+split containing every stage on both sides. Each attack here runs once, for a
+scheduled stretch, so blocks are interleaved rather than cut chronologically,
+and a four-window gap is discarded at every boundary because a 60s window every
+15s shares three quarters of its traffic with its neighbour.
+
+| stage | precision | recall | support |
+|---|---|---|---|
+| Reconnaissance | 0.132 | 0.321 | 28 |
+| Initial Access | 0.632 | 0.462 | 156 |
+| Lateral Movement | 0.292 | 0.636 | 22 |
+| Command & Control | 0.745 | 0.570 | 128 |
+| Impact (DoS) | 0.410 | 0.444 | 72 |
+
+Reconnaissance is the weak class: 0.132 precision means most windows called
+reconnaissance are not, which is worth knowing before trusting that label.
+Command & Control and Initial Access are the two that carry their weight.
+
+The dataset carries no exfiltration ground truth, so that stage is never fitted
+and never predicted. Denial of service maps to Impact, which is not one of the
+five stages the statement names, and is carried as its own class rather than
+forced into one that does not fit. Where the classifier is unsure it says so:
+the interface reports low-confidence calls as weak and names the confusion the
+matrix above shows rather than presenting a stage as settled.
+
+## Counterfactual intervention
+
+Not asked for. A classifier scores the traffic it is given; a model of
+transition dynamics can be asked what happens if the state were different.
+
+The first version reported every action as reducing peak risk by exactly 0.00.
+Two causes, both silent. The playbook scaled features that no longer existed —
+it was written against host-graph descriptors that later became optional and
+default to off — so three scalings in five matched nothing and the panel read
+as "no defensive action helps" when none had been applied. And the metric was
+the reduction in *peak* risk over the horizon, which could not have been
+anything but zero: at the first rollout step only one row of the history
+carries the intervention and the rest is observed attack traffic.
+
+Acting now cannot rewrite traffic that already happened. The honest measure is
+how fast the constrained trajectory comes down once that history flushes:
+
+| action | risk at horizon | contains in |
+|---|---|---|
+| quarantine the top talker | 0.99 → 0.01 | 75s |
+| restrict east-west movement | 0.99 → 0.02 | 90s |
+| block the scanned ports | 0.99 → 0.02 | 105s |
+| rate-limit the source | 0.99 → 0.29 | 210s |
+
+The ordering is what the actions mean: quarantine removes the host, throttling
+only slows it. Each is a hand-specified physical approximation of a defensive
+action, not a learned one, and the model has never seen a network under
+intervention — the reported drift measures how far each edit moves the state
+from anything observed, and all four stay inside the range where the dynamics
+still have something to say.

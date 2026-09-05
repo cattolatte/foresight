@@ -8,10 +8,14 @@ __pycache__/
 venv/
 .ipynb_checkpoints/
 
-# data and model artefacts (large, re-downloadable, or generated)
-data/
-checkpoints/
-runs/
+# Data and model artefacts (large, re-downloadable, or generated).
+# Anchored to the repository root. Unanchored, "data/" matches a directory of
+# that name at any depth, which silently excluded the whole of foresight/data
+# -- the flow loader, the graph features and the packet extractor were all
+# untracked and the published repository was missing its data layer.
+/data/
+/checkpoints/
+/runs/
 *.pcap
 *.pcapng
 *.csv
