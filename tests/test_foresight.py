@@ -223,3 +223,106 @@ def test_interleaved_split_never_puts_overlapping_windows_on_both_sides():
     tr = np.flatnonzero(train)
     te = np.flatnonzero(test)
     assert np.abs(tr[:, None] - te[None, :]).min() > gap
+
+
+def test_auc_handles_ties():
+    """Tied scores must share the average rank.
+
+    Every number this project reports comes through this function, and the
+    baselines it is compared against are the tied cases: persistence takes two
+    values, always-positive takes one. Ranking by argsort alone gave a
+    coin-flip binary predictor 0.250 and a constant score 0.250, both of which
+    are 0.500 -- an error that understates tied scorers and so flattered the
+    model against exactly the baselines meant to keep it honest.
+    """
+    from foresight.baseline import _auc
+
+    def brute(scores, labels):
+        pos, neg = scores[labels == 1], scores[labels == 0]
+        wins = (pos[:, None] > neg[None, :]).sum()
+        ties = (pos[:, None] == neg[None, :]).sum()
+        return float((wins + 0.5 * ties) / (len(pos) * len(neg)))
+
+    # A binary predictor that is right half the time is worth exactly 0.5.
+    assert _auc(np.array([1., 1., 0., 0.]), np.array([1, 0, 1, 0])) == 0.5
+    # A constant score carries no information whatever it is.
+    assert _auc(np.array([1., 1., 1., 1.]), np.array([1, 0, 1, 0])) == 0.5
+    # A perfect split is still 1.0 even though every score is tied within class.
+    assert _auc(np.array([1., 1., 0., 0.]), np.array([1, 1, 0, 0])) == 1.0
+
+    rng = np.random.default_rng(0)
+    for _ in range(200):
+        n = int(rng.integers(4, 40))
+        scores = rng.choice([0.0, 0.5, 1.0, float(rng.random())], size=n)
+        labels = rng.integers(0, 2, size=n)
+        if labels.min() == labels.max():
+            continue
+        assert abs(_auc(scores, labels) - brute(scores, labels)) < 1e-9
+
+
+def _internal_flows(n: int = 400) -> pd.DataFrame:
+    rng = np.random.default_rng(3)
+    start = pd.Timestamp("2017-07-07 09:00:00")
+    ts = start + pd.to_timedelta(np.arange(n) * 3, unit="s")
+    frame = pd.DataFrame({
+        "ts": ts,
+        "day": ts.date.astype(str),
+        "source_ip": rng.choice(["192.168.10.5", "192.168.10.8"], n),
+        "destination_ip": rng.choice(["8.8.8.8", "192.168.10.9"], n),
+        "destination_port": rng.integers(1, 500, n),
+        "protocol": "tcp",
+        "attack_label": np.where(np.arange(n) > n * 0.8, "Bot", "BENIGN"),
+    })
+    for col in ["Flow Duration", "Total Fwd Packets", "Flow Bytes/s",
+                "SYN Flag Count", "Flow IAT Min"]:
+        frame[col] = rng.random(n) * 10
+    return frame
+
+
+def test_host_windows_cover_every_host_at_every_time():
+    """A host that sent nothing is a zero state, not a missing row.
+
+    The dynamics model needs an evenly spaced sequence per host; a ragged
+    index would have it learning the clock rather than the traffic.
+    """
+    from foresight.data.hosts import build_host_windows
+
+    w = build_host_windows(_internal_flows(), "2017-07-07", "60s", "15s")
+    hosts = np.unique(w.hosts)
+    times = np.unique(w.times)
+    assert len(w.states) == len(hosts) * len(times)
+    for host in hosts:
+        assert (w.hosts == host).sum() == len(times)
+    assert np.isfinite(w.states).all()
+
+
+def test_host_identity_is_not_a_feature():
+    """Attacks here concentrate on one victim, so the address must not leak.
+
+    192.168.10.50 carries 83% of all attack flows in this capture. A model
+    given the address would learn which machine this capture targets, which
+    transfers to nothing.
+    """
+    from foresight.data.hosts import build_host_windows
+
+    w = build_host_windows(_internal_flows(), "2017-07-07", "60s", "15s")
+    for column in w.columns:
+        assert "ip" not in column.lower()
+        assert "host" not in column.lower() or column.startswith("h_")
+    assert not any(c.startswith("192.168") for c in w.columns)
+
+
+def test_host_sequences_label_strictly_beyond_the_gap():
+    """Per-host labels must respect the same forecast gap as network-wide."""
+    from foresight.data.hosts import build_host_windows, host_sequences
+    from foresight.model.dataset import Normaliser
+
+    w = build_host_windows(_internal_flows(), "2017-07-07", "60s", "15s")
+    norm = Normaliser.fit(w.states)
+    history, target, risk, families, origin = host_sequences(
+        w, norm, length=4, horizon=2, gap=4)
+    assert len(history) == len(target) == len(risk) == len(families) == len(origin)
+    assert history.shape[1] == 4
+    assert set(np.unique(risk)) <= {0.0, 1.0}
+    # A window labelled malicious must name the family driving it.
+    assert all(f != "BENIGN" for f, r in zip(families, risk) if r > 0)

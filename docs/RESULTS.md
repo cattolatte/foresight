@@ -22,7 +22,7 @@ Test: 6–7 July (web attacks, infiltration, port scan, botnet, DDoS).
 **Read [ANALYSIS.md](ANALYSIS.md) before this table.** A single feature — flow
 count — scores 0.783 AUC on the same task, and a persistence baseline using the
 ground-truth label of the last observed window and no features at all scores
-0.873. This benchmark does not separate a world model from a threshold on
+0.871. This benchmark does not separate a world model from a threshold on
 traffic volume, and the numbers below are reported for completeness rather than
 as evidence.
 

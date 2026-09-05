@@ -5,7 +5,7 @@ looks. Attack episodes in this capture run for minutes -- median 60s on
 Thursday, 240s on Friday, up to 70 minutes -- against a 90s horizon, so "is
 there an attack in the next 90 seconds" is very nearly "is there an attack
 now". A persistence baseline that uses the ground-truth label of the last
-observed window and no features at all scores 0.898 AUC. Nothing that scores
+observed window and no features at all scores 0.871 AUC. Nothing that scores
 below that is forecasting; it is detecting, and being graded on autocorrelation.
 
 The honest question is whether an attack *begins* when nothing is yet visible.
@@ -71,7 +71,7 @@ def train_benign(states: np.ndarray, targets: np.ndarray, n_features: int,
             loss = loss_fn(predicted, target)
             loss.backward()
             opt.step()
-            total += float(loss) * len(history)
+            total += float(loss.detach()) * len(history)
         if epoch % 20 == 19:
             print(f"    epoch {epoch + 1:3d}  dynamics loss {total / len(states):.4f}",
                   flush=True)

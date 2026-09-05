@@ -71,7 +71,7 @@ negative results in [docs/RESULTS.md](docs/RESULTS.md).
 | logistic regression, full history | 0.540 | 0.412 | 0.784 | 0.388 | 0.716 |
 
 > **This table is not the headline.** A single feature — flow count — scores
-> 0.783 on the same task, and persistence with no features scores 0.873.
+> 0.783 on the same task, and persistence with no features scores 0.871.
 > [docs/ANALYSIS.md](docs/ANALYSIS.md) works out what the benchmark was really
 > measuring and what replaces it.
 

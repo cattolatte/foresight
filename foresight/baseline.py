@@ -63,11 +63,33 @@ def metrics(scores: np.ndarray, labels: np.ndarray, threshold: float = 0.5) -> d
 
 
 def _auc(scores: np.ndarray, labels: np.ndarray) -> float:
+    """Rank-sum AUC, with tied scores sharing the average rank.
+
+    The tie handling is not a detail here. The previous version ranked by
+    argsort alone, which hands tied scores arbitrary distinct ranks, and the
+    baselines this project compares against are exactly the tied cases: a
+    persistence baseline takes two values, an always-positive baseline takes
+    one. It scored a coin-flip binary predictor at 0.250 and a constant score
+    at 0.250, both of which are 0.500. The error understates tied scorers, so
+    it flattered the model against precisely the baselines meant to keep it
+    honest.
+    """
+    labels = np.asarray(labels)
+    scores = np.asarray(scores, dtype=float)
     if labels.min() == labels.max():
         return float("nan")
-    order = np.argsort(scores)
-    ranks = np.empty_like(order, dtype=float)
-    ranks[order] = np.arange(1, len(scores) + 1)
+
+    order = np.argsort(scores, kind="mergesort")
+    ordered = scores[order]
+    ranks_in_order = np.arange(1, len(scores) + 1, dtype=float)
+    start = 0
+    for i in range(1, len(ordered) + 1):
+        if i == len(ordered) or ordered[i] != ordered[start]:
+            ranks_in_order[start:i] = ranks_in_order[start:i].mean()
+            start = i
+    ranks = np.empty(len(scores), dtype=float)
+    ranks[order] = ranks_in_order
+
     pos, neg = labels.sum(), (1 - labels).sum()
     return float((ranks[labels == 1].sum() - pos * (pos + 1) / 2) / (pos * neg))
 

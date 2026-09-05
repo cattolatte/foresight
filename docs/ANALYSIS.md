@@ -17,15 +17,15 @@ what the forecasting benchmark can be beaten by without a model
 
 | baseline | AUC | F1 |
 |---|---|---|
-| **persistence** — the ground-truth label of the last observed window, no features | **0.873** | **0.837** |
+| **persistence** — the ground-truth label of the last observed window, no features | **0.871** | **0.837** |
 | one feature — flow count | 0.783 | 0.540 |
 | one feature — fraction of flows that are TCP | 0.742 | 0.508 |
 | one feature — fraction with the `-1` window sentinel | 0.701 | 0.498 |
-| always predict attack | 0.454 | 0.410 |
+| always predict attack | 0.500 | 0.410 |
 | *world model, for comparison* | *0.785* | *0.353* |
 
 **A single feature — flow count — matches the world model.** Persistence beats
-it by nine points. The headline result is not evidence that anything was
+it by nearly nine points. The headline result is not evidence that anything was
 learned about attack dynamics.
 
 ## Why persistence wins: the horizon is shorter than the attacks
@@ -194,3 +194,19 @@ learned network dynamics. One result does support a weaker and more defensible
 version of that claim — benign-trained surprise beating naive dynamics 0.753 to
 0.537 — and one measurement explains every remaining failure, which is that
 network-wide averaging costs 85× of signal on the attacks that matter.
+
+## A correction to this document's own arithmetic
+
+The AUC these numbers are computed with was wrong for tied scores. It ranked by
+`argsort` alone, which hands equal scores arbitrary distinct ranks instead of
+the average rank they share, and the baselines in the table above are precisely
+the tied cases: persistence takes two values, always-positive takes one. It
+scored a coin-flip binary predictor at 0.250 and a constant score at 0.250, both
+of which are 0.500.
+
+The error understates tied scorers, so it was flattering the model against
+exactly the baselines meant to keep it honest. Corrected, persistence moves
+0.873 → 0.871 and always-positive 0.454 → 0.500; the continuous scorers are
+unaffected because they have no ties. The conclusion is unchanged and slightly
+firmer. `_auc` is now checked against a brute-force pair count over randomised
+tie-heavy inputs in the test suite.
