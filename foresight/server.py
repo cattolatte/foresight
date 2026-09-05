@@ -26,7 +26,7 @@ import torch
 from fastapi import FastAPI, File, HTTPException, UploadFile
 from fastapi.responses import HTMLResponse, JSONResponse
 
-from foresight.data.flows import build_windows
+from foresight.data.flows import build_windows, load_flows
 from foresight.model.dataset import Normaliser
 from foresight.model.world import WorldModel
 from foresight.predict.counterfactual import rank_interventions
@@ -37,6 +37,7 @@ CKPT = Path("checkpoints/world")
 
 app = FastAPI(title="Foresight", version="0.1.0")
 _state: dict = {}
+_days: dict = {}
 
 
 def loaded() -> dict:
@@ -56,6 +57,28 @@ def loaded() -> dict:
                       stage_model=pickle.loads(stages.read_bytes()),
                       norm=Normaliser(mean=saved["mean"], std=saved["std"]))
     return _state
+
+
+@app.get("/api/sample")
+def sample_days() -> JSONResponse:
+    """Capture days available locally, so the demo can run without a file.
+
+    A judge should not have to find a parquet before seeing anything. Present
+    only if the flow table is on this machine; the interface hides the control
+    when it is not.
+    """
+    path = Path("data/flows.parquet")
+    if not path.exists():
+        return JSONResponse({"days": []})
+    if "days" not in _days:
+        # Only the timestamp column, and only its distinct dates. Calling the
+        # full loader here parsed 2.8 million timestamps on every page load and
+        # the control took long enough to appear that it looked broken.
+        stamps = pd.read_parquet(path, columns=["Timestamp"])["Timestamp"]
+        parsed = pd.to_datetime(stamps, dayfirst=True, format="mixed",
+                                errors="coerce")
+        _days["days"] = sorted(parsed.dt.date.astype(str).unique().tolist())
+    return JSONResponse({"days": _days["days"]})
 
 
 @app.get("/", response_class=HTMLResponse)
@@ -96,10 +119,16 @@ def _read(upload: UploadFile) -> pd.DataFrame:
 
 
 @app.post("/api/analyse")
-async def analyse(capture: UploadFile = File(...), day: str | None = None):
+async def analyse(capture: UploadFile | None = File(None), day: str | None = None):
     s = loaded()
     cfg, model, norm = s["cfg"], s["model"], s["norm"]
-    frame = _read(capture)
+    if capture is not None:
+        frame = _read(capture)
+    else:
+        path = Path("data/flows.parquet")
+        if not path.exists():
+            raise HTTPException(400, "no capture uploaded and no local sample")
+        frame = load_flows(path)
     chosen = day or frame["day"].mode()[0]
     windows = build_windows(frame, chosen, cfg["window"], cfg.get("stride"),
                             cfg.get("graph", False))

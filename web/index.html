@@ -28,6 +28,9 @@ main{max-width:1240px;margin:0 auto;padding:24px}
   text-align:center;color:var(--muted);cursor:pointer;transition:.15s}
 #drop:hover,#drop.over{border-color:var(--accent);color:var(--ink);background:var(--panel2)}
 .row{display:flex;gap:10px;align-items:center;margin-top:14px;flex-wrap:wrap}
+button.ghost{background:transparent;color:var(--fg);border:1px solid var(--line);
+  padding:5px 11px;font:11px var(--mono);border-radius:6px;cursor:pointer}
+button.ghost:hover:not(:disabled){border-color:var(--accent);color:var(--accent)}
 button{background:var(--accent);color:#04121f;border:0;padding:10px 20px;
   border-radius:8px;cursor:pointer;font-weight:600}
 button:disabled{opacity:.5;cursor:default}
@@ -122,7 +125,8 @@ th{color:var(--muted);font-weight:500}
       </aside>
     </div>
   </div>
-  <div id="error" class="card err" style="display:none"></div>
+  <div id="samples" style="display:none;margin-top:10px"></div>
+    <div id="error" class="card err" style="display:none"></div>
 </main>
 
 <script>
@@ -140,21 +144,39 @@ drop.ondragover = e => { e.preventDefault(); drop.classList.add('over'); };
 drop.ondragleave = () => drop.classList.remove('over');
 drop.ondrop = e => { e.preventDefault(); drop.classList.remove('over'); pick(e.dataTransfer.files[0]); };
 $('#file').onchange = e => pick(e.target.files[0]);
+
+// Sample days, when the flow table is on this machine. A demo that requires
+// the viewer to already have a parquet file is a demo nobody runs.
+fetch('/api/sample').then(r=>r.json()).then(d=>{
+  if(!d.days || !d.days.length) return;
+  const bar=$('#samples');
+  bar.innerHTML='<span class="muted small">or analyse a capture day on this machine:</span> '+
+    d.days.map(x=>`<button class="ghost" data-day="${x}">${x}</button>`).join(' ');
+  bar.style.display='block';
+  bar.querySelectorAll('button').forEach(b=>{
+    b.onclick=()=>run(b.dataset.day, b);
+  });
+}).catch(()=>{});
 function pick(f){ if(!f) return; file=f; $('#chosen').textContent=f.name; $('#go').disabled=false; }
 
-$('#go').onclick = async () => {
-  const btn=$('#go'); btn.disabled=true; btn.innerHTML='<span class="spin"></span>analysing…';
+$('#go').onclick = () => run(null, $('#go'));
+
+async function run(day, btn){
+  const label = btn.textContent;
+  btn.disabled=true; btn.innerHTML='<span class="spin"></span>analysing…';
   $('#error').style.display='none';
-  const fd=new FormData(); fd.append('capture', file);
+  const fd=new FormData();
+  if(!day) fd.append('capture', file);
   try{
-    const r = await fetch('/api/analyse', {method:'POST', body:fd});
+    const url = day ? `/api/analyse?day=${encodeURIComponent(day)}` : '/api/analyse';
+    const r = await fetch(url, {method:'POST', body:fd});
     const j = await r.json();
     if(!r.ok) throw new Error(j.detail||'analysis failed');
     render(j);
   }catch(e){
     $('#error').style.display='block'; $('#error').textContent=e.message;
-  }finally{ btn.disabled=false; btn.textContent='Analyse'; }
-};
+  }finally{ btn.disabled=false; btn.textContent=label; }
+}
 
 function line(canvas, values, truth, colour){
   const dpr=window.devicePixelRatio||1, w=canvas.clientWidth, h=canvas.clientHeight;
