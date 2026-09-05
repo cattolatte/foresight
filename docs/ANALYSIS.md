@@ -67,12 +67,11 @@ changes:
 
 | model | onset AUC |
 |---|---|
-| one feature — `unique_dst_ports` | 0.787 |
-| one feature — flow count | 0.782 |
-| logistic regression, current window | 0.772 |
-| one feature — fraction TCP | 0.717 |
-| **world model surprise** (unsupervised, benign-trained) | 0.714 |
-| shipped world model risk head | 0.757 |
+| one feature — `unique_dst_ports` (supervised) | **0.787** |
+| one feature — flow count (supervised) | 0.782 |
+| logistic regression, current window (supervised) | 0.770 |
+| shipped world model risk head (supervised) | 0.762 |
+| world model surprise (unsupervised, benign-trained) | 0.710 |
 
 Single features still win. And the reason the world model cannot simply be
 retrained for this task is a hard data limit: **the three training days contain
@@ -88,18 +87,22 @@ change, score the size of the movement.
 
 | signal | AUC (all) | AUC (onset) |
 |---|---|---|
-| world model surprise, benign-trained, unsupervised | **0.753** | **0.714** |
-| naive dynamics — size of the change | 0.537 | 0.535 |
-| logistic regression on history, supervised | 0.702 | 0.705 |
+| world model surprise, benign-trained, unsupervised | **0.752** | 0.710 |
+| naive dynamics — size of the change | 0.551 | 0.577 |
+| logistic regression on history, supervised | 0.726 | **0.751** |
 
-Beating the naive control 0.753 to 0.537 is the one clean result in this
+Beating the naive control 0.752 to 0.551 is the one clean result in this
 document: **the model has learned something real about how traffic evolves**, not
 merely that traffic moved. And it does so without ever seeing an attack label,
 which is a stronger generalisation claim than any supervised number here — it
 cannot have overfitted to attack families it was never shown.
 
-It still does not beat a single supervised feature on the label. Both facts are
-true and both belong in the write-up.
+It does not beat the supervised baselines. On an earlier run it edged the
+supervised regression on the onset task, 0.714 to 0.705; after the feature
+correction and a retrain that reversed to 0.710 against 0.751, and a gap of
+that size across a reseed was never worth a claim in the first place. The
+defensible statement is the one against the naive control, where the margin is
+0.20 AUC rather than 0.01.
 
 ## The mechanism behind every failure: aggregation
 
@@ -145,7 +148,7 @@ a distributed flood is a network-wide phenomenon, and splitting it across
 fifteen hosts is the wrong description of it.
 
 Folding the two back into one score does not work: taking the per-window maximum
-over hosts scores 0.730 AUC against 0.753 for the network view alone, because
+over hosts scores 0.730 AUC against 0.752 for the network view alone, because
 the maximum over fifteen hosts tracks the noisiest host rather than the
 compromised one. That is the correct lesson rather than a failed experiment.
 **Per-host alerts should stay per-host.** "Host .17 is behaving unlike itself" is
@@ -165,7 +168,7 @@ feature can match is not a benchmark. This costs nothing and is the difference
 between a number and a claim.
 
 **2. Keep the surprise model as the primary system.** It is unsupervised, uses
-no attack labels, beats its control decisively (0.753 against 0.537), and
+no attack labels, beats its control decisively (0.752 against 0.551), and
 generalises to unseen families by construction rather than by assertion. The
 supervised risk head should be reported as a baseline, not as the product.
 
@@ -191,8 +194,8 @@ field applies, instead of being averaged as though it were a window size.
 The system works, the interface works, and the engineering is sound. What the
 original benchmark did not support is the claim that it works *because* it
 learned network dynamics. One result does support a weaker and more defensible
-version of that claim — benign-trained surprise beating naive dynamics 0.753 to
-0.537 — and one measurement explains every remaining failure, which is that
+version of that claim — benign-trained surprise beating naive dynamics 0.752 to
+0.551 — and one measurement explains every remaining failure, which is that
 network-wide averaging costs 85× of signal on the attacks that matter.
 
 ## A correction to this document's own arithmetic

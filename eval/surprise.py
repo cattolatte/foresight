@@ -10,8 +10,8 @@ below that is forecasting; it is detecting, and being graded on autocorrelation.
 
 The honest question is whether an attack *begins* when nothing is yet visible.
 Restricted to windows whose entire observed history is benign, the ranking
-inverts: the shipped world model scores 0.757 against 0.772 for a logistic
-regression on the current window. It was never trained for that task, and it
+narrows and then reverses: the shipped world model scores 0.762 against 0.787
+for a single feature, `unique_dst_ports`, fitted on the same windows. It was never trained for that task, and it
 cannot easily be -- the three training days contain 83 onset-positive windows,
 about fourteen attack episodes, which is not enough to fit a model of this size.
 
