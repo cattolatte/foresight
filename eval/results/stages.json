@@ -1,0 +1,55 @@
+{
+  "classes": [
+    "Reconnaissance",
+    "Initial Access",
+    "Lateral Movement",
+    "Command & Control",
+    "Impact (DoS)"
+  ],
+  "matrix": [
+    [
+      5,
+      0,
+      6,
+      10,
+      7
+    ],
+    [
+      17,
+      91,
+      1,
+      8,
+      39
+    ],
+    [
+      6,
+      0,
+      14,
+      2,
+      0
+    ],
+    [
+      27,
+      14,
+      0,
+      79,
+      8
+    ],
+    [
+      12,
+      19,
+      8,
+      8,
+      25
+    ]
+  ],
+  "accuracy": 0.5270935960591133,
+  "chance": 0.2,
+  "precision": {
+    "Reconnaissance": 0.07462686567164178,
+    "Initial Access": 0.7338709677419355,
+    "Lateral Movement": 0.4827586206896552,
+    "Command & Control": 0.7383177570093458,
+    "Impact (DoS)": 0.31645569620253167
+  }
+}

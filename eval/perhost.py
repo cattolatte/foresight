@@ -52,6 +52,37 @@ def train_benign(history, target, n_features, epochs=40, seed=0):
     return model.eval()
 
 
+def signal_to_noise(flows) -> dict:
+    """An attack's share of the flows, network-wide against on its own host.
+
+    This is the measurement the whole per-host argument rests on, so it is
+    computed here rather than quoted: for each family, take the window of time
+    its episode spans and compare its share of all flows in that window with
+    its share of the flows touching the host it appears on most.
+    """
+    import pandas as pd
+
+    out = {}
+    for family in flows.loc[flows["attack_label"].ne("BENIGN"),
+                            "attack_label"].unique():
+        attack = flows[flows["attack_label"] == family]
+        day = attack["ts"].dt.date.astype(str).mode()[0]
+        same_day = flows[flows["day"] == day]
+        during = same_day[(same_day["ts"] >= attack["ts"].min())
+                          & (same_day["ts"] <= attack["ts"].max())]
+        if not len(during):
+            continue
+        network = float((during["attack_label"] == family).mean())
+        peers = pd.concat([attack["source_ip"], attack["destination_ip"]])
+        busiest = peers.value_counts().index[0]
+        on_host = during[(during["source_ip"] == busiest)
+                         | (during["destination_ip"] == busiest)]
+        host = float((on_host["attack_label"] == family).mean()) if len(on_host) else 0.0
+        out[family] = {"network": network, "host": host,
+                       "gain": host / network if network else 0.0}
+    return out
+
+
 def main() -> None:
     flows = load_flows()
     print(__doc__)
@@ -111,6 +142,8 @@ def main() -> None:
 
     Path("eval/results").mkdir(parents=True, exist_ok=True)
     Path("eval/results/perhost.json").write_text(json.dumps(out, indent=2))
+    Path("eval/results/snr.json").write_text(
+        json.dumps(signal_to_noise(flows), indent=2))
     torch.save(model.state_dict(), "checkpoints/world/host_dynamics.pt")
     np.savez("checkpoints/world/host_norm.npz", mean=norm.mean, std=norm.std)
     print("\nwrote eval/results/perhost.json")

@@ -132,6 +132,14 @@ def main() -> None:
     model.precision = {n: (matrix[i, i] / matrix[:, i].sum()
                            if matrix[:, i].sum() else 0.0)
                        for i, n in enumerate(names)}
+    Path("eval/results").mkdir(parents=True, exist_ok=True)
+    Path("eval/results/stages.json").write_text(json.dumps({
+        "classes": names,
+        "matrix": matrix.tolist(),
+        "accuracy": acc,
+        "chance": 1 / len(names),
+        "precision": model.precision,
+    }, indent=2))
     Path("checkpoints/world/stages.pkl").write_bytes(pickle.dumps(model))
     print("\nfitted stage model written to checkpoints/world/stages.pkl")
 
